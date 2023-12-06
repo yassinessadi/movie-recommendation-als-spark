@@ -1,3 +1,6 @@
+#### ```System Architecture```
+<img src="./assets/project-moives-lens-model.png"/>
+
 #### ```Flask API```
 > run a Flask API :
 ```
