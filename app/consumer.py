@@ -95,8 +95,8 @@ movie_mapping = {
         "properties": {
             "movieId": {"type": "integer"},
             "title": {"type": "text"},
-            "genre": {"type": "text"},
-            "release_date": {"type": "date", "format": "dd-MM-yyyy"},
+            "genre": {"type": "keyword"},
+            "release_date": {"type": "date", "format": "dd-MMM-yyyy"},
             "url": {"type": "text"},
         }
     }
@@ -123,14 +123,8 @@ user_mapping = {
 #+---+--------+------+------+-------------------+------+#
 
 es = Elasticsearch([{'host': 'localhost', 'port':9200, 'scheme':'http'}])
+es.options(ignore_status=400).indices.create(index="moviesindex",mappings=movie_mapping)
 
-# es.options(ignore_status=404).indices.create(index="moviesindex",mappings=movie_mapping)
-
-es.indices.create(index="moviesindex", mappings=movie_mapping,ignore_status=404)
-
-# resp = es.indices.exists(index="moviesindex")
-# if resp == False:
-  # es.indices.create(index="moviesindex", body=movie_mapping, ignore=400)
 
 
 query = movie_df.writeStream \
