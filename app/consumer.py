@@ -91,7 +91,10 @@ rating_df = selected_movies_df.select(
     F.col("values.rating").alias("rating"),
     F.from_unixtime(F.col("values.timestamp") / 1000, "yyyy-MM-dd HH:mm:ss").alias("rating_date"),
     F.col("values.movieId").alias("movieId"),
-    F.col("values.userId").alias("userId")
+    F.col("values.userId").alias("userId"),
+    F.concat_ws("",
+            F.col("values.movieId"),
+            F.col("values.userId")).alias("id"),
 )
 
 
@@ -101,11 +104,11 @@ rating_df = selected_movies_df.select(
 movie_mapping = {
     "mappings": {
         "properties": {
-            "movieId": {"type": "integer"},
             "title": {"type": "text"},
             "genre": {"type": "keyword"},
             "release_date": {"type": "date", "format": "dd-MMM-yyyy"},
             "url": {"type": "text"},
+            "movieId": {"type": "integer"},
         }
     }
 }
@@ -120,6 +123,7 @@ rating_mapping = {
             "rating_date": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
             "movieId": {"type": "integer"},
             "userId": {"type": "integer"},
+            "id": {"type": "integer"},
         }
     }
 }
@@ -144,18 +148,20 @@ user_mapping = {
 #+---+--------+------+------+-------------------+------++-------------------+------+#
 #                 connect to elasticsearch and insert into the target index         #
 #+---+--------+------+------+-------------------+------++-------------------+------+#
-def insert_data(index_name, df, checkpointlocation):
+def insert_data(index_name, df, checkpointlocation,_id):
     """
     `index_name` : Elastic search index \n
     `df` : Dataframe that you want to insert into elastic search \n
-    `checkpointlocation` : To truncate the logical plan of this DataFrame  
+    `checkpointlocation` : To truncate the logical plan of this DataFrame \n
+    `_id` : specefiy the documment id in elasticsearch
     """
     query = df.writeStream \
         .format("org.elasticsearch.spark.sql") \
         .outputMode("append") \
-        .option("es.resource", index_name) \
+        .option("es.resource", f"{index_name}") \
         .option("es.nodes", "localhost") \
         .option("es.port", "9200") \
+        .option("es.mapping.id", _id) \
         .option("es.nodes.wan.only", "false") \
         .option("checkpointLocation", checkpointlocation) \
         .option("es.write.operation", "index") \
@@ -168,21 +174,21 @@ def insert_data(index_name, df, checkpointlocation):
 #+---+--------+------+------+-------------------+------+#
 es = Elasticsearch([{'host': 'localhost', 'port':9200, 'scheme':'http'}])
 es.options(ignore_status=400).indices.create(index="moviesindex",mappings=movie_mapping)
-query = insert_data("moviesindex", movie_df, "./checkpointLocation/movies/")
+query = insert_data("moviesindex", movie_df, "./checkpointLocation/movies/","movieId")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into ratings index              #
 #+---+--------+------+------+-------------------+------+#
 es.options(ignore_status=400).indices.create(index="ratingsindex",mappings=rating_mapping)
-query =  insert_data("ratingsindex", rating_df, "./checkpointLocation/ratings/")
+query =  insert_data("ratingsindex", rating_df, "./checkpointLocation/ratings/","id")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into users index                #
 #+---+--------+------+------+-------------------+------+#
 es.options(ignore_status=400).indices.create(index="usersindex",mappings=user_mapping)
-query = insert_data("usersindex",user_df,"./checkpointLocation/users/")
+query = insert_data("usersindex",user_df,"./checkpointLocation/users/","userId")
 
 
 
