@@ -76,15 +76,23 @@ movie_df = selected_movies_df.select(
 #**************************#
 #   Transformations user   #
 #**************************#
-rated_user_df = selected_movies_df.select(
+user_df = selected_movies_df.select(
     F.col("values.age").alias("age"),
     F.col("values.function").alias("function"),
     F.col("values.gender").alias("gender"),
-    F.col("values.rating").alias("rating"),
-    F.from_unixtime(F.col("values.timestamp") / 1000, "yyyy-MM-dd HH:mm:ss").alias("rating_date"),
-    F.col("values.userId").alias("userId")
+    F.col("values.userId").alias("userId"),
+    F.col("values.number").alias("zipCode"),
 )
 
+#**************************#
+# Transformations ratings  #
+#**************************#
+rating_df = selected_movies_df.select(
+    F.col("values.rating").alias("rating"),
+    F.from_unixtime(F.col("values.timestamp") / 1000, "yyyy-MM-dd HH:mm:ss").alias("rating_date"),
+    F.col("values.movieId").alias("movieId"),
+    F.col("values.userId").alias("userId")
+)
 
 
 ##################################
@@ -102,6 +110,20 @@ movie_mapping = {
     }
 }
 
+##################################
+# Define mapping for rating index #
+##################################
+rating_mapping = {
+    "mappings": {
+        "properties": {
+            "rating": {"type": "float"},
+            "rating_date": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
+            "movieId": {"type": "integer"},
+            "userId": {"type": "integer"},
+        }
+    }
+}
+
 #################################
 # Define mapping for user index #
 #################################
@@ -111,39 +133,64 @@ user_mapping = {
             "age": {"type": "integer"},
             "function": {"type": "text"},
             "gender": {"type": "text"},
-            "rating": {"type": "float"},
-            "rating_date": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
             "userId": {"type": "integer"},
+            "zipCode": {"type": "text"},
         }
     }
 }
 
+
+
+#+---+--------+------+------+-------------------+------++-------------------+------+#
+#                 connect to elasticsearch and insert into the target index         #
+#+---+--------+------+------+-------------------+------++-------------------+------+#
+def insert_data(index_name, df, checkpointlocation):
+    """
+    `index_name` : Elastic search index \n
+    `df` : Dataframe that you want to insert into elastic search \n
+    `checkpointlocation` : To truncate the logical plan of this DataFrame  
+    """
+    query = df.writeStream \
+        .format("org.elasticsearch.spark.sql") \
+        .outputMode("append") \
+        .option("es.resource", index_name) \
+        .option("es.nodes", "localhost") \
+        .option("es.port", "9200") \
+        .option("es.nodes.wan.only", "false") \
+        .option("checkpointLocation", checkpointlocation) \
+        .option("es.write.operation", "index") \
+        .start()
+    return query
+
+
 #+---+--------+------+------+-------------------+------+#
 #                 insert into movie index               #
 #+---+--------+------+------+-------------------+------+#
-
 es = Elasticsearch([{'host': 'localhost', 'port':9200, 'scheme':'http'}])
 es.options(ignore_status=400).indices.create(index="moviesindex",mappings=movie_mapping)
+query = insert_data("moviesindex", movie_df, "./checkpointLocation/movies/")
 
 
+#+---+--------+------+------+-------------------+------+#
+#                insert into ratings index              #
+#+---+--------+------+------+-------------------+------+#
+es.options(ignore_status=400).indices.create(index="ratingsindex",mappings=rating_mapping)
+query =  insert_data("ratingsindex", rating_df, "./checkpointLocation/ratings/")
 
-query = movie_df.writeStream \
-    .format("org.elasticsearch.spark.sql") \
-    .outputMode("append") \
-    .option("es.resource", "moviesindex") \
-    .option("es.nodes", "localhost") \
-    .option("es.port", "9200") \
-    .option("es.nodes.wan.only", "false") \
-    .option("checkpointLocation", "./checkpointLocation/tmp/") \
-    .option("es.write.operation", "index") \
-    .start()
+
+#+---+--------+------+------+-------------------+------+#
+#                insert into users index                #
+#+---+--------+------+------+-------------------+------+#
+es.options(ignore_status=400).indices.create(index="usersindex",mappings=user_mapping)
+query = insert_data("usersindex",user_df,"./checkpointLocation/users/")
+
 
 
 ###########################################################
 # Ensure that the process runs and outputs on the console #
 ###########################################################
-query = movie_df.writeStream.outputMode("append").format("console").start()
-# query = rated_user_df.writeStream.outputMode("append").format("console").start()
+# query = movie_df.writeStream.outputMode("append").format("console").start()
+query = rating_df.writeStream.outputMode("append").format("console").start()
 query.awaitTermination()
 
 
