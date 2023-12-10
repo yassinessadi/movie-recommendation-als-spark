@@ -195,7 +195,8 @@ query = insert_data("usersindex",user_df,"./checkpointLocation/users/","userId")
 ###########################################################
 # Ensure that the process runs and outputs on the console #
 ###########################################################
-# query = movie_df.writeStream.outputMode("append").format("console").start()
+query = movie_df.writeStream.outputMode("append").format("console").start()
+query = user_df.writeStream.outputMode("append").format("console").start()
 query = rating_df.writeStream.outputMode("append").format("console").start()
 query.awaitTermination()
 
