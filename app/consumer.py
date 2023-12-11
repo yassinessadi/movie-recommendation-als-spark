@@ -7,8 +7,8 @@ from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, ArrayType,DoubleType,LongType
 SparkSession.builder.config(conf=SparkConf())
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, ArrayType,DoubleType,LongType
 from elasticsearch import Elasticsearch
 
 
@@ -173,21 +173,21 @@ def insert_data(index_name, df, checkpointlocation,_id):
 #                 insert into movie index               #
 #+---+--------+------+------+-------------------+------+#
 es = Elasticsearch([{'host': 'localhost', 'port':9200, 'scheme':'http'}])
-es.options(ignore_status=400).indices.create(index="moviesindex",mappings=movie_mapping)
+es.options(ignore_status=400).indices.create(index="movies_moviesindex",mappings=movie_mapping)
 query = insert_data("moviesindex", movie_df, "./checkpointLocation/movies/","movieId")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into ratings index              #
 #+---+--------+------+------+-------------------+------+#
-es.options(ignore_status=400).indices.create(index="ratingsindex",mappings=rating_mapping)
+es.options(ignore_status=400).indices.create(index="movies_ratingsindex",mappings=rating_mapping)
 query =  insert_data("ratingsindex", rating_df, "./checkpointLocation/ratings/","id")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into users index                #
 #+---+--------+------+------+-------------------+------+#
-es.options(ignore_status=400).indices.create(index="usersindex",mappings=user_mapping)
+es.options(ignore_status=400).indices.create(index="movies_usersindex",mappings=user_mapping)
 query = insert_data("usersindex",user_df,"./checkpointLocation/users/","userId")
 
 
@@ -199,10 +199,3 @@ query = movie_df.writeStream.outputMode("append").format("console").start()
 query = user_df.writeStream.outputMode("append").format("console").start()
 query = rating_df.writeStream.outputMode("append").format("console").start()
 query.awaitTermination()
-
-
-
-
-
-
-
