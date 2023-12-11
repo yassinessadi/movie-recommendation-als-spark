@@ -81,8 +81,10 @@ user_df = selected_movies_df.select(
     F.col("values.function").alias("function"),
     F.col("values.gender").alias("gender"),
     F.col("values.userId").alias("userId"),
-    F.col("values.number").alias("zipCode"),
+    F.col("values.number").alias("zipCode")
 )
+
+
 
 #**************************#
 # Transformations ratings  #
@@ -174,21 +176,21 @@ def insert_data(index_name, df, checkpointlocation,_id):
 #+---+--------+------+------+-------------------+------+#
 es = Elasticsearch([{'host': 'localhost', 'port':9200, 'scheme':'http'}])
 es.options(ignore_status=400).indices.create(index="movies_moviesindex",mappings=movie_mapping)
-query = insert_data("moviesindex", movie_df, "./checkpointLocation/movies/","movieId")
+query = insert_data("movies_moviesindex", movie_df, "./checkpointLocation/movies/","movieId")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into ratings index              #
 #+---+--------+------+------+-------------------+------+#
 es.options(ignore_status=400).indices.create(index="movies_ratingsindex",mappings=rating_mapping)
-query =  insert_data("ratingsindex", rating_df, "./checkpointLocation/ratings/","id")
+query =  insert_data("movies_ratingsindex", rating_df, "./checkpointLocation/ratings/","id")
 
 
 #+---+--------+------+------+-------------------+------+#
 #                insert into users index                #
 #+---+--------+------+------+-------------------+------+#
 es.options(ignore_status=400).indices.create(index="movies_usersindex",mappings=user_mapping)
-query = insert_data("usersindex",user_df,"./checkpointLocation/users/","userId")
+query = insert_data("movies_usersindex",user_df,"./checkpointLocation/users/","userId")
 
 
 
