@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 producer = Producer(kafka_config)
 
 
-counter = 0
+counter = 1270
 while True:
     base_url = f"http://127.0.0.1:5000/api/movie"
     params = {
