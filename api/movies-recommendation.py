@@ -25,30 +25,24 @@ client = es(
     "http://localhost:9200",  # Elasticsearch endpoint
     )
 
-
-# Load the ALS model
-als_model = ALSModel.load("../model/asl-model")
-
-
 def fetch_data_from_elasticsearch(index, query):
     result = es.search(index=index, body=query)
     return result
 
 
-
 @app.route('/recommend', methods=['GET'])
 def recommend():
     # data = request.get_json()
-    user_id = str(request.args.get('user_id'))
+    # user_id = str(request.args.get('user_id'))
 
     # Fetch user data from Elasticsearch
-    user_data = fetch_data_from_elasticsearch('movies_usersindex', {'query': {'match': {'user_id': user_id}}})
+    # user_data = fetch_data_from_elasticsearch('movies_usersindex', {'query': {'match': {'user_id': user_id}}})
 
     # Use the ALS model to generate recommendations based on user data
     # recommendations = als_model.transform(user_data)
 
     # Process and return recommendations
-    return jsonify(user_data)
+    return jsonify("")
 
 
 
