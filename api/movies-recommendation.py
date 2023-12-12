@@ -5,6 +5,7 @@ from flask import Flask,request,render_template,jsonify
 from elasticsearch import Elasticsearch as es
 from pyspark.sql import SparkSession
 from pyspark.ml.recommendation import ALSModel 
+from math import ceil
 
 
 app = Flask(__name__)
@@ -43,6 +44,19 @@ def fetch_data(index,keyword , value):
     hits = response["hits"]["hits"]
     return [hit["_source"] for hit in hits] if hits else []
 
+
+# ------------+------------ ------------+------------ #
+#      number of the movies in elasticsearch          #
+# ------------+------------ ------------+------------ #
+def movies_count():
+    query = {
+        "query": {
+             "match_all": {}
+        }
+    }
+    result = client.search(index='movies_moviesindex', body=query)
+    total_movies = result['hits']['total']['value']
+    return total_movies
 
 
 def fetch_all_movies(index , page, size):
@@ -97,7 +111,14 @@ def index():
     # Retrieve movies based on the parameters provided by users in the request #
     #--------+---------------+---------------+---------------+-----------------#
     movies = fetch_all_movies('movies_moviesindex',page=page,size=size)
-    return jsonify(movies)
+    #--------+-------#
+    # number of page #
+    #--------+-------#
+    total_movies = movies_count()
+    total_pages = ceil(total_movies / size)
+
+    # return jsonify(movies)
+    return render_template("index.html" , movies=movies, page=page, size=size,total_pages=total_pages)
 
 
 
