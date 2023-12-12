@@ -55,15 +55,14 @@
                       {% for movie in movies %}
                       <div class="col mb-4">
                           <div class="card" style="width: 23rem;">
-                              <div class="card-body">
-                                  <h5 class="card-title">{{movie.title}}</h5>
-                                  <p class="card-text">{{movie.title[0:100]}}</p>
-                                  <div class="row justify-content-center mt-2">
-                                    <div class="col-auto">
-                                          detials
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">{{movie.title[0:20]}}</div>
                                     </div>
-                                  </div>
-                              </div>
+                                    <span class="badge bg-primary rounded-pill">{{movie.release_date}}</span>
+                                    </li>
+                                </ul>
                           </div>
                       </div>
                       {% endfor %}
