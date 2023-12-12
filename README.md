@@ -1,8 +1,7 @@
 #### ```System Architecture```
 <img src="./assets/pipeline-v2-pro-jane-essadi.png"/>
 
-
-#### ```Flask API```
+#### ```Flask API (main)```
 > run a Flask API :
 ```
 cd api
@@ -46,3 +45,20 @@ url : "http://localhost:5000/api/movie?id=10"
 
 
 #### ```Consumer:```
+
+
+
+#### ```Flask API (movies-recommendations)```
+```
+cd api
+flask --app mmovies-recommendation run
+```
+> by default the page = 1 and number of movies = 30
+
+base url : "http://127.0.0.1:5000"
+
+> Pagination :
+
+url : "http://localhost:5000/?size=30&page=1"
+
+<hr />
