@@ -19,7 +19,7 @@ app = Flask(__name__)
 #         .master("local") \
 #         .getOrCreate()
 
-# # Load your ALS model
+# # # Load your ALS model
 # model_path = "../model/als-model"  # Path to your ALS model
 # als_model = ALSModel.load(model_path)
 
@@ -31,8 +31,22 @@ client = es(
     "http://localhost:9200",  # Elasticsearch endpoint
     )
 
-def fetch_data(index,keyword , value):
 
+# ------------+------------ #
+# integration of als model  #
+# ------------+------------ #
+def getUsers(dataset,movieId,limit):
+    """
+    #### get users from the dataset and return a dataframe contains userId (ids)
+     `dataset` : the dataset returned from elasticsearch \n
+     `movieId` : the movieId for specific movie selected by or filterd by users \n
+     `limit` : The number of users who rated that movie. 
+    """
+    df = dataset.where(f"movieId = {movieId}")
+    return df.select("userId").distinct().limit(limit)
+
+
+def fetch_data(index,keyword , value):
     """
     #### Retrieve the data from Elasticsearch by providing the parameters below :
 
@@ -43,6 +57,17 @@ def fetch_data(index,keyword , value):
     response = client.search(index=index, body={'query': {'term': {keyword: value}}})
     hits = response["hits"]["hits"]
     return [hit["_source"] for hit in hits] if hits else []
+
+
+# get movie
+@app.route("/movie/",methods=["GET"])
+def getMovie():
+    title = str(request.args.get("title"))
+    hits = fetch_data("movies_moviesindex","title",title)
+    # result = [hit["_source"] for hit in hits] if hits else []
+    if len(hits) == 0:
+        return jsonify("Movie Not Found")
+    return jsonify(hits[0])
 
 
 # ------------+------------ ------------+------------ #

@@ -3,11 +3,10 @@ import requests
 import json
 import logging
 
-
 #----+----+----+----+----+#
 #       topic name        #
 #----+----+----+----+----+#
-topic = "ratingmoviestopic"
+topic = "moviesrecommendationallinone"
 
 #----+----+----+----+----+#
 #       kafka broker      #
@@ -31,7 +30,7 @@ logger = logging.getLogger(__name__)
 producer = Producer(kafka_config)
 
 
-counter = 2000
+counter = 20500
 while True:
     base_url = f"http://127.0.0.1:5000/api/movie"
     params = {
