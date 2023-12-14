@@ -29,7 +29,7 @@ spark = SparkSession.builder \
 df = spark.readStream \
   .format("kafka") \
   .option("kafka.bootstrap.servers", "localhost:9092") \
-  .option("subscribe", "ratingmoviestopic") \
+  .option("subscribe", "moviesrecommendationallinone") \
   .option("startingOffsets", "earliest") \
   .load()
 value_df = df.selectExpr("CAST(value AS STRING)")
@@ -64,6 +64,8 @@ selected_movies_df = value_df.withColumn("values", F.from_json(value_df["value"]
 #**************************#
 #   Transformations movie  #
 #**************************#
+# selected_movies_df = selected_movies_df.where("values.movieId != null")
+
 movie_df = selected_movies_df.select(
     F.col("values.movieId").alias("movieId"),
     F.col("values.name").alias("title"),
@@ -71,6 +73,8 @@ movie_df = selected_movies_df.select(
     F.col("values.release_date").alias("release_date"),
     F.col("values.url").alias("url"),
 )
+movie_df = movie_df.where("release_date != ''")
+movie_df = movie_df.where("url != ''")
 
 
 #**************************#
@@ -99,6 +103,24 @@ rating_df = selected_movies_df.select(
             F.col("values.userId")).alias("id"),
 )
 
+
+#*****************************#
+# Transformations all in One  #
+#*****************************#
+allInOne_df = selected_movies_df.select(
+    F.col("values.rating").alias("rating"),
+    F.from_unixtime(F.col("values.timestamp") / 1000, "yyyy-MM-dd HH:mm:ss").alias("rating_date"),
+    F.col("values.movieId").alias("movieId"),
+    F.col("values.userId").alias("userId"),
+    F.col("values.age").alias("age"),
+    F.col("values.function").alias("function"),
+    F.col("values.gender").alias("gender"),
+    F.col("values.number").alias("zipCode"),
+    F.col("values.name").alias("title"),
+    F.col("values.genre").alias("genre"),
+    F.col("values.release_date").alias("release_date"),
+    F.col("values.url").alias("url"),
+)
 
 ##################################
 # Define mapping for movie index #
@@ -146,6 +168,29 @@ user_mapping = {
 }
 
 
+#######################################
+# Define mapping for all index in one #
+#######################################
+
+allMovie_mapping = {
+    "mappings": {
+        "properties": {
+            "userId": {"type": "integer"},
+            "title": {"type": "text"},
+            "genre": {"type": "keyword"},
+            "release_date": {"type": "date", "format": "dd-MMM-yyyy"},
+            "url": {"type": "text"},
+            "movieId": {"type": "integer"},
+            "age": {"type": "integer"},
+            "function": {"type": "text"},
+            "gender": {"type": "text"},
+            "zipCode": {"type": "text"},
+            "rating": {"type": "float"},
+            "rating_date": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
+        }
+    }
+}
+
 
 #+---+--------+------+------+-------------------+------++-------------------+------+#
 #                 connect to elasticsearch and insert into the target index         #
@@ -164,6 +209,28 @@ def insert_data(index_name, df, checkpointlocation,_id):
         .option("es.nodes", "localhost") \
         .option("es.port", "9200") \
         .option("es.mapping.id", _id) \
+        .option("es.nodes.wan.only", "false") \
+        .option("checkpointLocation", checkpointlocation) \
+        .option("es.write.operation", "index") \
+        .start()
+    return query
+
+
+#+---+--------+------+------+-------------------+------++-------------------+------+------+#
+#                 connect to elasticsearch and insert into the target all in one index     #
+#+---+--------+------+------+-------------------+------++-------------------+------+------+#
+def insert_data_in_single_index(index_name, df, checkpointlocation):
+    """
+    `index_name` : Elastic search index \n
+    `df` : Dataframe that you want to insert into elastic search \n
+    `checkpointlocation` : To truncate the logical plan of this DataFrame \n
+    """
+    query = df.writeStream \
+        .format("org.elasticsearch.spark.sql") \
+        .outputMode("append") \
+        .option("es.resource", f"{index_name}") \
+        .option("es.nodes", "localhost") \
+        .option("es.port", "9200") \
         .option("es.nodes.wan.only", "false") \
         .option("checkpointLocation", checkpointlocation) \
         .option("es.write.operation", "index") \
@@ -192,6 +259,12 @@ query =  insert_data("movies_ratingsindex", rating_df, "./checkpointLocation/rat
 es.options(ignore_status=400).indices.create(index="movies_usersindex",mappings=user_mapping)
 query = insert_data("movies_usersindex",user_df,"./checkpointLocation/users/","userId")
 
+#+---+--------+------+------+-------------------+------+#
+#                insert into all in single index        #
+#+---+--------+------+------+-------------------+------+#
+
+es.options(ignore_status=400).indices.create(index="movies_singleindex",mappings=allMovie_mapping)
+query = insert_data_in_single_index("movies_singleindex", allInOne_df, "./checkpointLocation/all_MoviesineOne/")
 
 
 ###########################################################
@@ -199,5 +272,6 @@ query = insert_data("movies_usersindex",user_df,"./checkpointLocation/users/","u
 ###########################################################
 query = movie_df.writeStream.outputMode("append").format("console").start()
 query = user_df.writeStream.outputMode("append").format("console").start()
+query = rating_df.writeStream.outputMode("append").format("console").start()
 query = rating_df.writeStream.outputMode("append").format("console").start()
 query.awaitTermination()

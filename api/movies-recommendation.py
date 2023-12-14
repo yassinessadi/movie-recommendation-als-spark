@@ -6,6 +6,7 @@ from elasticsearch import Elasticsearch as es
 from pyspark.sql import SparkSession
 from pyspark.ml.recommendation import ALSModel 
 from math import ceil
+import pandas as pd
 
 
 app = Flask(__name__)
@@ -14,25 +15,24 @@ app = Flask(__name__)
 # spark init and load model here  #  
 #-----+---------+------+----------#
 
-# SparkSession.builder \
-#         .appName("recommend-movies") \
-#         .master("local") \
-#         .getOrCreate()
+spark = SparkSession.builder \
+        .appName("recommend-movies") \
+        .master("local") \
+        .getOrCreate()
 
-# # Load your ALS model
-# model_path = "../model/als-model"  # Path to your ALS model
-# als_model = ALSModel.load(model_path)
+# # # Load your ALS model
+model_path = "../model/als-model"  # Path to your ALS model
+als_model = ALSModel.load(model_path)
 
 # ------------+------------ #
 # connect to elasticsearch  #
 # ------------+------------ #
 
-client = es(
-    "http://localhost:9200",  # Elasticsearch endpoint
-    )
+client = es("http://localhost:9200")  # Elasticsearch endpoint
+
+
 
 def fetch_data(index,keyword , value):
-
     """
     #### Retrieve the data from Elasticsearch by providing the parameters below :
 
@@ -43,6 +43,40 @@ def fetch_data(index,keyword , value):
     response = client.search(index=index, body={'query': {'term': {keyword: value}}})
     hits = response["hits"]["hits"]
     return [hit["_source"] for hit in hits] if hits else []
+
+
+
+# ------------+------------ #
+# integration of als model  #
+# ------------+------------ #
+def getUsers(movieId,limit):
+    """
+    #### get users from the dataset and return a dataframe contains userId (ids)
+     `movieId` : the movieId for specific movie selected by or filterd by users \n
+     `limit` : The number of users who rated that movie. 
+    """
+    response = fetch_data("movies_singleindex","movieId",movieId)
+    df = pd.DataFrame(response)
+    df = df['userId'].tolist()
+    df = spark.createDataFrame(df)
+    return df.select("userId").distinct().limit(limit)
+
+
+
+
+# get movie
+@app.route("/movie/",methods=["GET"])
+def getMovie():
+    title = str(request.args.get("title"))
+    hits = fetch_data("movies_moviesindex","title",title)
+    if len(hits) == 0:
+        return jsonify("Movie Not Found")
+    movieId = hits[0]['movieId']
+    users = getUsers(movieId,3)
+    userSubsetRecs = als_model.recommendForUserSubset(users, 2)
+    return jsonify(userSubsetRecs.collect())
+
+
 
 
 # ------------+------------ ------------+------------ #
@@ -57,6 +91,7 @@ def movies_count():
     result = client.search(index='movies_moviesindex', body=query)
     total_movies = result['hits']['total']['value']
     return total_movies
+
 
 
 def fetch_all_movies(index , page, size):
@@ -119,43 +154,3 @@ def index():
 
     # return jsonify(movies)
     return render_template("index.html" , movies=movies, page=page, size=size,total_pages=total_pages)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def get_all_movies():
-#     query = {
-#         "query": {
-#              "match_all": {}
-#         }
-#     }
-#     result = client.search(index='movies_usersindex', body=query)
-#     total_movies = result['hits']
-#     return total_movies
-
-# @app.route("/movie/" , methods=["GET"])
-# def getAll():
-#     title = request.args.get("title",None)
-#     responce = get_all_movies()
-#     return jsonify(responce)
